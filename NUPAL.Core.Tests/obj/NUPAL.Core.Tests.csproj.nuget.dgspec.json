@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj": {}
+    "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj": {}
   },
   "projects": {
-    "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj": {
+    "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj",
+        "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj",
         "projectName": "NUPAL.Core.Tests",
-        "projectPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj",
+        "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Tests\\NUPAL.Core.Tests.csproj",
         "packagesPath": "C:\\Users\\N..C..C\\.nuget\\packages\\",
-        "outputPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Tests\\obj\\",
+        "outputPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Tests\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\N..C..C\\AppData\\Roaming\\NuGet\\NuGet.Config"

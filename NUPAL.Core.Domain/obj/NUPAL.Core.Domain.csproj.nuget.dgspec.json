@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {}
+    "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {}
   },
   "projects": {
-    "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
+    "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj",
+        "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj",
         "projectName": "NUPAL.Core.Domain",
-        "projectPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj",
+        "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj",
         "packagesPath": "C:\\Users\\N..C..C\\.nuget\\packages\\",
-        "outputPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\obj\\",
+        "outputPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\N..C..C\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -51,11 +51,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\NUPAL.Core.Infrastructure.csproj",
+      "projectUniqueName": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\NUPAL.Core.Infrastructure.csproj",
       "projectName": "NUPAL.Core.Infrastructure",
-      "projectPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\NUPAL.Core.Infrastructure.csproj",
+      "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\NUPAL.Core.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\N..C..C\\.nuget\\packages\\",
-      "outputPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\obj\\",
+      "outputPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\N..C..C\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -70,11 +70,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj": {
-              "projectPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj"
+            "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj": {
+              "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj"
             },
-            "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
-              "projectPath": "D:\\NU\\Grad 1\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj"
+            "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
+              "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj"
             }
           }
         }
