@@ -706,11 +706,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "d:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj": {
-              "projectPath": "d:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj"
+            "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj": {
+              "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Application\\NUPAL.Core.Application.csproj"
             },
-            "d:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
-              "projectPath": "d:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj"
+            "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj": {
+              "projectPath": "D:\\NU\\Grad 1\\NUPAL\\NUPAL-Core-Services\\NUPAL.Core.Domain\\NUPAL.Core.Domain.csproj"
             }
           }
         }
