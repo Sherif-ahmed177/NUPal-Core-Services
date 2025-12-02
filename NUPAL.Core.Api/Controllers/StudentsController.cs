@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using NUPAL.Core.Application.Interfaces;    
 using Nupal.Domain.Entities;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
 
 namespace NUPAL.Core.API.Controllers    
 {
@@ -9,10 +14,12 @@ namespace NUPAL.Core.API.Controllers
     public class StudentsController : ControllerBase
     {
         private readonly IStudentService _service;
+        private readonly IConfiguration _config;
 
-        public StudentsController(IStudentService service)
+        public StudentsController(IStudentService service, IConfiguration config)
         {
             _service = service;
+            _config = config;
         }
 
         public class ImportRequest
@@ -126,7 +133,27 @@ namespace NUPAL.Core.API.Controllers
                 if (!ok) return Unauthorized(new { error = "invalid_credentials" });
 
                 if (s.Account != null) s.Account.PasswordHash = null;
-                return Ok(new { ok = true, student = s });
+
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var keyValue = _config["Jwt:Key"] ?? throw new InvalidOperationException("Missing Jwt:Key configuration");
+                var key = Encoding.UTF8.GetBytes(keyValue);
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, s.Account.Id),
+                        new Claim(ClaimTypes.Email, s.Account.Email),
+                        new Claim(ClaimTypes.Name, s.Account.Name)
+                    }),
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    Issuer = _config["Jwt:Issuer"] ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration"),
+                    Audience = _config["Jwt:Audience"] ?? throw new InvalidOperationException("Missing Jwt:Audience configuration"),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var tokenString = tokenHandler.WriteToken(token);
+
+                return Ok(new { ok = true, token = tokenString, student = s });
             }
             catch (Exception ex)
             {
@@ -134,6 +161,7 @@ namespace NUPAL.Core.API.Controllers
             }
         }
 
+        [Authorize]
         [HttpGet("by-email/{email}")]
         public async Task<IActionResult> GetByEmail([FromRoute] string email)
         {
