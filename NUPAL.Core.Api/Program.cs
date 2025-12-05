@@ -1,8 +1,5 @@
-using MongoDB.Driver;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using NUPAL.Core.Application.Interfaces;
-using NUPAL.Core.Application.Services;
-using Nupal.Core.Infrastructure.Repositories;
+using NUPAL.Core.Application;
+using NUPAL.Core.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,18 +7,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 
-var mongoUrl = builder.Configuration.GetValue<string>("MONGO_URL")
-               ?? Environment.GetEnvironmentVariable("MONGO_URL")
-               ?? "mongodb://localhost:27017";
-builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoUrl));
-builder.Services.AddSingleton<IMongoDatabase>(sp =>
-{
-    var client = sp.GetRequiredService<IMongoClient>();
-    return client.GetDatabase("nupal");
-});
-
-builder.Services.AddScoped<IStudentRepository, StudentRepository>();
-builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddApplicationServices();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Missing Jwt:Key configuration");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration");
