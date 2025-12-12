@@ -21,6 +21,10 @@ namespace NUPAL.Core.Infrastructure
             });
 
             services.AddScoped<IStudentRepository, StudentRepository>();
+            services.AddScoped<IContactRepository, ContactRepository>();
+
+            // Register Wuzzuf job scraping service
+            services.AddHttpClient<IJobService, Services.WuzzufJobService>();
 
             return services;
         }
