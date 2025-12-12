@@ -49,5 +49,11 @@ namespace Nupal.Core.Infrastructure.Repositories
         {
             return await _col.Find(x => x.Account.Email == email).FirstOrDefaultAsync();
         }
+
+        public async Task<Student> GetByIdAsync(string id)
+        {
+            // Note: Assuming 'id' here corresponds to Account.Id (string) and not the BsonId
+            return await _col.Find(x => x.Account.Id == id).FirstOrDefaultAsync();
+        }
     }
 }
