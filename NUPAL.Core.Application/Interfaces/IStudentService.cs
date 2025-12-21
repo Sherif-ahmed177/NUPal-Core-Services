@@ -6,6 +6,7 @@ namespace NUPAL.Core.Application.Interfaces
     {
         Task UpsertStudentAsync(ImportStudentDto dto);
         Task<StudentDto> GetStudentByEmailAsync(string email);
+        Task<StudentDto> GetStudentByIdAsync(string id);
         Task<AuthResponseDto> AuthenticateAsync(LoginDto loginDto, string jwtKey, string jwtIssuer, string jwtAudience);
     }
 }

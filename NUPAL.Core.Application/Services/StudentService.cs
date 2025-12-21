@@ -11,10 +11,12 @@ namespace NUPAL.Core.Application.Services
     public class StudentService : IStudentService
     {
         private readonly IStudentRepository _repo;
+        private readonly IPrecomputeService _precomputeService;
 
-        public StudentService(IStudentRepository repo)
+        public StudentService(IStudentRepository repo, IPrecomputeService precomputeService)
         {
             _repo = repo;
+            _precomputeService = precomputeService;
         }
 
         public async Task UpsertStudentAsync(ImportStudentDto dto)
@@ -54,11 +56,30 @@ namespace NUPAL.Core.Application.Services
             };
 
             await _repo.UpsertAsync(student);
+
+            // Trigger precompute automatically on any data change
+            // We use production mode by default for automatic triggers
+            try 
+            {
+                await _precomputeService.TriggerPrecomputeAsync(student.Account.Id, isSimulation: false);
+            }
+            catch (Exception ex)
+            {
+                // We log but don't fail the import if precompute failing (resilience)
+                Console.WriteLine($"[WARNING] Student {student.Account.Id} imported, but failed to trigger automatic precompute: {ex.Message}");
+            }
         }
 
         public async Task<StudentDto> GetStudentByEmailAsync(string email)
         {
             var s = await _repo.FindByEmailAsync(email.ToLower());
+            if (s == null) return null;
+            return MapToDto(s);
+        }
+
+        public async Task<StudentDto> GetStudentByIdAsync(string id)
+        {
+            var s = await _repo.GetByIdAsync(id);
             if (s == null) return null;
             return MapToDto(s);
         }

@@ -55,5 +55,10 @@ namespace Nupal.Core.Infrastructure.Repositories
             // Note: Assuming 'id' here corresponds to Account.Id (string) and not the BsonId
             return await _col.Find(x => x.Account.Id == id).FirstOrDefaultAsync();
         }
+
+        public async Task<IEnumerable<Student>> GetAllAsync()
+        {
+            return await _col.Find(_ => true).ToListAsync();
+        }
     }
 }

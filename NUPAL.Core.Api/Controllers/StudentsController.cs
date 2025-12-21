@@ -90,5 +90,20 @@ namespace NUPAL.Core.API.Controllers
                 return StatusCode(500, new { error = "server_error", message = ex.Message });
             }
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById([FromRoute] string id)
+        {
+            try
+            {
+                var s = await _service.GetStudentByIdAsync(id);
+                if (s == null) return NotFound(new { error = "not_found" });
+                return Ok(s);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "server_error", message = ex.Message });
+            }
+        }
     }
 }

@@ -7,5 +7,6 @@ namespace NUPAL.Core.Application.Interfaces
         Task UpsertAsync(Student s);
         Task<Student> FindByEmailAsync(string email);
         Task<Student> GetByIdAsync(string id);
+        Task<IEnumerable<Student>> GetAllAsync();
     }
 }

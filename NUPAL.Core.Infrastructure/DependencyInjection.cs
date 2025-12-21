@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using NUPAL.Core.Application.Interfaces;
 using Nupal.Core.Infrastructure.Repositories;
+using Nupal.Core.Infrastructure.Services;
 
 namespace NUPAL.Core.Infrastructure
 {
@@ -23,10 +24,18 @@ namespace NUPAL.Core.Infrastructure
             services.AddScoped<IStudentRepository, StudentRepository>();
             services.AddScoped<IContactRepository, ContactRepository>();
 
+            services.AddScoped<IRlJobRepository, RlJobRepository>();
+            services.AddScoped<IRlRecommendationRepository, RlRecommendationRepository>();
+            services.AddHttpClient<IRlService, RlService>();
+            services.AddScoped<IPrecomputeService, PrecomputeService>();
+
             // Register Wuzzuf job scraping service
             services.AddHttpClient<IJobService, Services.WuzzufJobService>();
             
             services.AddScoped<IDynamicSkillsService, Services.DynamicSkillsService>();
+
+            // Register background worker for automatic sync
+            services.AddHostedService<PrecomputeBackgroundWorker>();
 
             return services;
         }

@@ -25,5 +25,8 @@ namespace Nupal.Domain.Entities
         public ObjectId Id { get; set; }
         public Account Account { get; set; }
         public Education Education { get; set; }
+        
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? LatestRecommendationId { get; set; }
     }
 }
