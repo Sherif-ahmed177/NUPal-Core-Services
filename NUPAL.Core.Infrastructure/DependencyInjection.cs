@@ -24,6 +24,10 @@ namespace NUPAL.Core.Infrastructure
             services.AddScoped<IStudentRepository, StudentRepository>();
             services.AddScoped<IContactRepository, ContactRepository>();
 
+            services.AddScoped<IChatConversationRepository, ChatConversationRepository>();
+            services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+            services.AddHttpClient<IAgentClient, AgentClient>();
+
             services.AddScoped<IRlJobRepository, RlJobRepository>();
             services.AddScoped<IRlRecommendationRepository, RlRecommendationRepository>();
             services.AddHttpClient<IRlService, RlService>();

@@ -9,6 +9,7 @@ namespace NUPAL.Core.Application
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             services.AddScoped<IStudentService, StudentService>();
+            services.AddScoped<IChatService, ChatService>();
             return services;
         }
     }
