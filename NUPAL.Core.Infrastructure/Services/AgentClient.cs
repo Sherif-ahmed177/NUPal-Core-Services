@@ -15,8 +15,7 @@ namespace Nupal.Core.Infrastructure.Services
         {
             _httpClient = httpClient;
             _baseUrl = config["AgentServiceUrl"] ?? config["Agent:BaseUrl"] ?? "http://localhost:8005";
-            // _httpClient.Timeout = TimeSpan.FromSeconds(60);
-            _httpClient.Timeout = TimeSpan.FromSeconds(120);
+            _httpClient.Timeout = TimeSpan.FromSeconds(300);
         }
 
         public async Task<AgentRouteResponseDto> RouteAsync(AgentRouteRequestDto request, CancellationToken ct = default)
