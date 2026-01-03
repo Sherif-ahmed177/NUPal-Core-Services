@@ -172,11 +172,122 @@ namespace NUPAL.Core.Application.Services
 
             await _convoRepo.TouchAsync(convoId);
 
+            // Update title if it's a new conversation (or has no title) and this is the first user message
+            if (string.IsNullOrEmpty(convo.Title))
+            {
+               // Simple strategy: use the first 50 chars of the message
+               var title = request.Message.Trim();
+               if (title.Length > 50) title = title.Substring(0, 50) + "...";
+               convo.Title = title;
+               await _convoRepo.UpdateAsync(convo); 
+            }
+
             return new ChatSendResponseDto
             {
                 ConversationId = convoId,
                 Replies = replies
             };
+        }
+
+        public async Task<List<ChatConversationDto>> GetConversationsAsync(string studentId)
+        {
+            var convos = await _convoRepo.GetLatestByStudentAsync(studentId);
+            var results = new List<ChatConversationDto>();
+
+            foreach (var c in convos)
+            {
+                // If title is missing, try to resolve it from the first message
+                if (string.IsNullOrEmpty(c.Title))
+                {
+                    // Fetch oldest message because title usually comes from start
+                    // But our repo only has "GetRecent" which is sorted desc. 
+                    // Let's get "Recent" limit 1? No, recent is newest.
+                    // We need a message to be the title. Newer is arguably better than nothing?
+                    // Let's fetch recent messages.
+                    var msgs = await _msgRepo.GetRecentByConversationAsync(c.Id.ToString(), 1);
+                    
+                    if (msgs.Any())
+                    {
+                        var firstMsg = msgs.First(); 
+                        // Wait, if we want the "original" request, we might want the oldest. But we don't have GetOldest.
+                        // For lazy migration purposes, the Last message is fine, or any message is fine.
+                        // Actually, if we just want to filter EMPTY chats, checking Any() is enough.
+                        
+                        // We can set a generic title or use the last message content.
+                        var content = firstMsg.Content;
+                        if (content.Length > 50) content = content.Substring(0, 50) + "...";
+                        c.Title = content;
+                        
+                        // Persist it so next time we don't query
+                        await _convoRepo.UpdateAsync(c);
+                    }
+                    else
+                    {
+                         // No messages found -> Empty chat -> Skip
+                         continue;
+                    }
+                }
+
+                results.Add(new ChatConversationDto
+                {
+                    Id = c.Id.ToString(),
+                    Title = c.Title!,
+                    LastActivityAt = c.LastActivityAt,
+                    IsPinned = c.IsPinned
+                });
+            }
+            return results;
+        }
+
+        public async Task<List<ChatMessageDto>> GetMessagesAsync(string conversationId)
+        {
+            var msgs = await _msgRepo.GetRecentByConversationAsync(conversationId, 100); // Fetch more for history
+            return msgs.OrderBy(m => m.CreatedAt).Select(m => new ChatMessageDto
+            {
+                Id = m.Id.ToString(),
+                Role = m.Role,
+                Content = m.Content,
+                CreatedAt = m.CreatedAt
+            }).ToList();
+        }
+
+        public async Task DeleteConversationAsync(string studentId, string conversationId)
+        {
+            var convo = await _convoRepo.GetByIdAsync(conversationId);
+            if (convo == null) return;
+            
+            // Validate ownership
+            if (convo.StudentId != studentId) 
+                throw new UnauthorizedAccessException("Cannot delete another student's conversation");
+
+            await _convoRepo.DeleteAsync(conversationId);
+            await _msgRepo.DeleteByConversationIdAsync(conversationId);
+        }
+
+        public async Task TogglePinAsync(string studentId, string conversationId, bool isPinned)
+        {
+            var convo = await _convoRepo.GetByIdAsync(conversationId);
+            if (convo == null) return;
+            
+            if (convo.StudentId != studentId)
+                throw new UnauthorizedAccessException();
+
+            convo.IsPinned = isPinned;
+            await _convoRepo.UpdateAsync(convo);
+        }
+
+        public async Task RenameConversationAsync(string studentId, string conversationId, string newTitle)
+        {
+            var convo = await _convoRepo.GetByIdAsync(conversationId);
+            if (convo == null) return;
+            
+            if (convo.StudentId != studentId)
+                throw new UnauthorizedAccessException();
+
+            if (string.IsNullOrWhiteSpace(newTitle)) return;
+
+            convo.Title = newTitle;
+            await _convoRepo.UpdateAsync(convo);
         }
     }
 }

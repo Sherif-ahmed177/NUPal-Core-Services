@@ -36,4 +36,33 @@ namespace NUPAL.Core.Application.DTOs
         [JsonPropertyName("replies")]
         public List<ChatReplyDto> Replies { get; set; } = new();
     }
+
+    public class ChatConversationDto
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("last_activity_at")]
+        public DateTime LastActivityAt { get; set; }
+        [JsonPropertyName("is_pinned")]
+        public bool IsPinned { get; set; }
+    }
+
+    public class ChatMessageDto
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = string.Empty; 
+
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = string.Empty;
+
+        [JsonPropertyName("created_at")]
+        public DateTime CreatedAt { get; set; }
+    }
 }
