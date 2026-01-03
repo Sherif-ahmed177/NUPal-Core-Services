@@ -8,7 +8,7 @@ namespace Nupal.Core.Infrastructure.Repositories
     {
         private readonly IMongoCollection<Student> _col;
 
-        public StudentRepository(IMongoDatabase db)
+        static StudentRepository()
         {
             if (!MongoDB.Bson.Serialization.BsonClassMap.IsClassMapRegistered(typeof(Student)))
             {
@@ -18,6 +18,10 @@ namespace Nupal.Core.Infrastructure.Repositories
                     cm.SetIgnoreExtraElements(true);
                 });
             }
+        }
+
+        public StudentRepository(IMongoDatabase db)
+        {
             _col = db.GetCollection<Student>("students");
             var idxs = new[]
             {
