@@ -15,5 +15,9 @@ namespace Nupal.Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
+
+        public string? Title { get; set; }
+
+        public bool IsPinned { get; set; }
     }
 }
