@@ -1,5 +1,7 @@
 using NUPAL.Core.Application;
 using NUPAL.Core.Infrastructure;
+using NUPAL.Core.Api.BackgroundServices;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,7 +11,9 @@ builder.Services.AddControllers();
 
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
-builder.Services.AddHttpClient(); // For debug controller
+builder.Services.AddHealthChecks();
+builder.Services.AddHostedService<AIServiceKeepAliveWorker>();
+builder.Services.AddHttpClient(); 
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Missing Jwt:Key configuration");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration");
@@ -51,7 +55,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// app.UseHttpsRedirection();
+
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
