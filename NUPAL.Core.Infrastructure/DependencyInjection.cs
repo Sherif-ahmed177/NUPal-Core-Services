@@ -4,6 +4,7 @@ using MongoDB.Driver;
 using NUPAL.Core.Application.Interfaces;
 using Nupal.Core.Infrastructure.Repositories;
 using Nupal.Core.Infrastructure.Services;
+using NUPAL.Core.Infrastructure.Services;
 
 namespace NUPAL.Core.Infrastructure
 {
@@ -35,16 +36,19 @@ namespace NUPAL.Core.Infrastructure
             services.AddScoped<IPrecomputeService, PrecomputeService>();
 
             // Register Wuzzuf job scraping service
-            services.AddHttpClient<IJobService, Services.WuzzufJobService>();
+            services.AddHttpClient<IJobService, WuzzufJobService>();
             
-            services.AddScoped<IDynamicSkillsService, Services.DynamicSkillsService>();
+            services.AddScoped<IDynamicSkillsService, DynamicSkillsService>();
             
             // Register Resume Persistence
             services.AddScoped<IResumeRepository, ResumeRepository>();
             
+            // Register Job Fit Analysis
+            services.AddScoped<IJobFitService, JobFitService>();
+            
             // Register Resume Parsing Services
-            services.AddScoped<IPdfTextExtractorService, NUPAL.Core.Infrastructure.Services.PdfTextExtractorService>();
-            services.AddScoped<IResumeParsingService, NUPAL.Core.Infrastructure.Services.GroqResumeParsingService>();
+            services.AddScoped<IPdfTextExtractorService, PdfTextExtractorService>();
+            services.AddScoped<IResumeParsingService, GroqResumeParsingService>();
 
             // Register background worker for automatic sync
             services.AddHostedService<PrecomputeBackgroundWorker>();

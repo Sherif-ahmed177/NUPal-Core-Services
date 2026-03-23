@@ -4,6 +4,7 @@ using NUPAL.Core.Application.DTOs;
 using NUPAL.Core.Application.Interfaces;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
 namespace NUPAL.Core.Infrastructure.Services
@@ -102,7 +103,7 @@ RESUME TEXT:
 
             var requestBody = new
             {
-                model = "llama-3.3-70b-versatile",
+                model = "llama-3.1-8b-instant",
                 messages = new[]
                 {
                     new { role = "user", content = prompt }
@@ -112,15 +113,13 @@ RESUME TEXT:
                 response_format = new { type = "json_object" }
             };
 
-            var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {groqApiKey}");
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", groqApiKey);
+            request.Content = JsonContent.Create(requestBody);
 
             _logger.LogInformation("Sending resume text to Groq API for parsing. Text length: {Length}", truncated.Length);
             
-            var response = await client.PostAsync("https://api.groq.com/openai/v1/chat/completions", content, ct);
+            var response = await _httpClientFactory.CreateClient().SendAsync(request, ct);
             var responseBody = await response.Content.ReadAsStringAsync(ct);
 
             if (!response.IsSuccessStatusCode)
