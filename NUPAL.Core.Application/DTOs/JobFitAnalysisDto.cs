@@ -66,4 +66,11 @@ namespace NUPAL.Core.Application.DTOs
         [JsonPropertyName("priority")]       public string Priority { get; set; } = "Medium";
         [JsonPropertyName("status")]         public string Status { get; set; } = "Do soon"; // "Do now", "Do soon", "Later"
     }
+
+    public class AnalyzeFitRequest
+    {
+        public string? JobUrl { get; set; }
+        public string? JobDescription { get; set; }
+        public string? ResumeId { get; set; }
+    }
 }

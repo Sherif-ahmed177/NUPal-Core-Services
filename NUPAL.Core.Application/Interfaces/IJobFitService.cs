@@ -5,6 +5,6 @@ namespace NUPAL.Core.Application.Interfaces
 {
     public interface IJobFitService
     {
-        Task<JobFitAnalysisDto> AnalyzeFitAsync(string jobUrl, ResumeData resumeData, CancellationToken ct);
+        Task<JobFitAnalysisDto> AnalyzeFitAsync(string? jobUrl, string? jobDescription, ResumeData resumeData, CancellationToken ct);
     }
 }

@@ -31,9 +31,20 @@ namespace Nupal.Core.Infrastructure.Services
         - List ALL requirements even if they seem minor or repeated.
         - Preserve the exact names (e.g. "React.js" not "React", "PostgreSQL" not "SQL").
         - Separate must-have from nice-to-have if explicitly stated; otherwise list everything under requirements.
+        - Include Job Title, Company Name, and Location if mentioned.
+        - CRITICAL: Use the actual Position Title (e.g. "Software Engineer Intern" or "Marketing Manager") as the JOB TITLE. Do NOT use generic placeholders like "Job Description" or "Internship Description" if an actual title is present in the text.
+        - If the company name is missing, look for phrases like "Welcome to [Name]", "At [Name]", or "[Name] is seeking".
         - Include experience level, education requirements, soft skills, domain context, and any tools/processes mentioned.
 
-        OUTPUT FORMAT:
+        --- JOB TITLE ---
+        [exact title]
+
+        --- COMPANY NAME ---
+        [name if mentioned, else "Unknown"]
+
+        --- LOCATION ---
+        [location if mentioned]
+
         --- REQUIRED SKILLS & TECHNOLOGIES (list every single one) ---
         [exhaustive comma-separated list]
 
@@ -154,11 +165,11 @@ STRICT ANALYSIS RULES:
 FIELD RULES (follow strictly before writing JSON):
 - matchedSkills: List EVERY keyword/technology/tool/framework/skill that appears in BOTH the JD and the CV. Zero exceptions. Do NOT group or summarize. Include ALL of them.
 - missingSkills: List EVERY keyword/technology/tool/framework/skill in the JD that does NOT appear in the CV. Zero exceptions. Do NOT group or summarize. Include ALL of them.
-- skillsNote: Format EXACTLY as 'LLM reviewed [Total] priority keywords and confirmed [Matched] as covered.' — numbers must match the actual lengths of matchedSkills and missingSkills arrays.
+- skillsNote: Format EXACTLY as 'AI Reviewed [Total] priority keywords and confirmed [Matched] as covered.' — numbers must match the actual lengths of matchedSkills and missingSkills arrays.
 - interviewFocus: Each item is a specific tip tied to real content in the JD or CV. Format: 'Prepare to explain [CV topic] in context of [JD requirement].' Be concrete.
 - suggestedLearning: Each item must name a SPECIFIC resource (course + platform + time estimate). Never vague.
 - redFlags: Short, plain sentence per concern. Empty array [] if none.
-- recommendations: One paragraph per Critical/High missing skill. Name the skill, explain its role context, give exact resources, suggest a micro-project, estimate score impact.
+- recommendations: Provide 3-5 HIGH-QUALITY, ACTIONABLE recommendations. Tackle every Critical/High missing skill first. If none, focus on Medium gaps or specific ways to deepen existing skills ("Moving from Practical to Advanced"). Each recommendation must be a focused paragraph naming the skill/area, explain its role context, give exact resources, suggest a micro-project, and estimate score impact.
 
 RETURN ONLY VALID JSON:
 {
@@ -174,7 +185,7 @@ RETURN ONLY VALID JSON:
     "credentials": 0,
     "readiness":   0,
 
-    "skillsNote":      "LLM reviewed X priority keywords and confirmed Y as covered.",
+    "skillsNote":      "AI Reviewed X priority keywords and confirmed Y as covered.",
     "experienceNote":  "Your exact professional experience vs JD requirement.",
     "domainNote":      "Your industry/domain alignment.",
     "credentialsNote": "Your degree status vs JD requirements.",
@@ -204,7 +215,7 @@ RETURN ONLY VALID JSON:
   ],
 
   "recommendations": [
-    "One focused paragraph per Critical/High missing skill."
+    "3-5 focused paragraphs addressing gaps or career growth. Start with Critical/High gaps, then Medium, then growth advice."
   ],
 
   "actionPlan": [
@@ -237,20 +248,27 @@ STRICT RULES:
             _logger = logger;
         }
 
-        public async Task<JobFitAnalysisDto> AnalyzeFitAsync(string jobUrl, ResumeData resumeData, CancellationToken ct)
+        public async Task<JobFitAnalysisDto> AnalyzeFitAsync(string? jobUrl, string? jobDescription, ResumeData resumeData, CancellationToken ct)
         {
-            _logger.LogInformation("Starting Job Fit Analysis for URL: {Url}", jobUrl);
+            _logger.LogInformation("Starting Job Fit Analysis. URL: {Url}, HasDescription: {HasDesc}", jobUrl, !string.IsNullOrWhiteSpace(jobDescription));
 
-            // 1. Scraping: extract text from URL
-            string rawJobDescription = await ExtractJobDescriptionFromUrlAsync(jobUrl, ct);
+            string rawJobDescription = jobDescription ?? string.Empty;
+
+            // 1. Scraping: extract text from URL if description is not provided
+            if (string.IsNullOrWhiteSpace(rawJobDescription) && !string.IsNullOrWhiteSpace(jobUrl))
+            {
+                _logger.LogInformation("No description provided. Scraping URL: {Url}", jobUrl);
+                rawJobDescription = await ExtractJobDescriptionFromUrlAsync(jobUrl, ct);
+            }
+
             if (string.IsNullOrWhiteSpace(rawJobDescription))
             {
-                throw new Exception("Could not extract any text from the provided job link. Please ensure it is a public job posting.");
+                throw new Exception("Please provide either a valid job URL or a job description text.");
             }
 
             // 2. Step 1: Extract/Summarize JD using Light Model (8B)
             _logger.LogInformation("Step 1: Extracting JD requirements using light model.");
-            var jdExtractionPrompt = JD_EXTRACTION_PROMPT.Replace("[JOB_TEXT]", rawJobDescription.Length > 10000 ? rawJobDescription[..10000] : rawJobDescription);
+            var jdExtractionPrompt = JD_EXTRACTION_PROMPT.Replace("[JOB_TEXT]", rawJobDescription.Length > 12000 ? rawJobDescription[..12000] : rawJobDescription);
             var extractedJd = await CallGroqAsync(jdExtractionPrompt, "llama-3.1-8b-instant", false, ct);
 
             // 3. Step 2: Job Fit Analysis using Heavy Model (70B)
@@ -316,7 +334,7 @@ STRICT RULES:
                 }
 
                 // Try to find the "main" content or just get all text
-                var mainNode = doc.DocumentNode.SelectSingleNode("//main|//article|//div[contains(@class, 'job')]|//div[contains(@class, 'description')]");
+                var mainNode = doc.DocumentNode.SelectSingleNode("//main|//article|//div[contains(@class, 'job-details')]|//div[contains(@class, 'job-description')]|//div[contains(@id, 'jobDescription')]|//div[contains(@class, 'company-header')]|//div[contains(@class, 'view-job-content')]");
                 string rawText = mainNode != null ? mainNode.InnerText : doc.DocumentNode.InnerText;
 
                 // Clean whitespace

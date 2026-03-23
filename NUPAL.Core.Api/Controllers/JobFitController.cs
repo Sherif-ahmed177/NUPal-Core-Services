@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nupal.Domain.Entities;
 using NUPAL.Core.Application.Interfaces;
 using NUPAL.Core.Application.DTOs;
+using System.Linq;
 
 namespace NUPAL.Core.API.Controllers
 {
@@ -32,8 +33,8 @@ namespace NUPAL.Core.API.Controllers
         [HttpPost("analyze")]
         public async Task<IActionResult> AnalyzeFit([FromBody] AnalyzeFitRequest request, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(request.JobUrl))
-                return BadRequest(new { error = "Job URL is required." });
+            if (string.IsNullOrWhiteSpace(request.JobUrl) && string.IsNullOrWhiteSpace(request.JobDescription))
+                return BadRequest(new { error = "Either Job URL or Job Description is required." });
 
             try
             {
@@ -42,19 +43,20 @@ namespace NUPAL.Core.API.Controllers
 
                 var history = await _resumeRepository.GetByStudentEmailAsync(email);
                 var latest = string.IsNullOrEmpty(request.ResumeId)
-                    ? history.FirstOrDefault()
+                    ? history.OrderByDescending(h => h.AnalyzedAt).FirstOrDefault()
                     : history.FirstOrDefault(h => h.Id.ToString() == request.ResumeId);
 
                 if (latest == null)
                     return BadRequest(new { error = "No resume found for analysis. Please upload your resume first." });
 
-                var analysis = await _jobFitService.AnalyzeFitAsync(request.JobUrl, latest.Data, ct);
+                var analysis = await _jobFitService.AnalyzeFitAsync(request.JobUrl, request.JobDescription, latest.Data, ct);
 
                 // Persist to DB
+                var jobUrlToStore = string.IsNullOrWhiteSpace(request.JobUrl) ? "Manual Entry" : request.JobUrl;
                 var record = new JobFitResult
                 {
                     StudentEmail = email,
-                    JobUrl = request.JobUrl,
+                    JobUrl = jobUrlToStore,
                     AnalyzedAt = DateTime.UtcNow,
                     AnalysisJson = System.Text.Json.JsonSerializer.Serialize(analysis)
                 };
@@ -125,9 +127,4 @@ namespace NUPAL.Core.API.Controllers
         }
     }
 
-    public class AnalyzeFitRequest
-    {
-        public string JobUrl { get; set; } = string.Empty;
-        public string? ResumeId { get; set; }
-    }
 }
