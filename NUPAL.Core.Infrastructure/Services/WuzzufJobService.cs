@@ -112,7 +112,7 @@ namespace NUPAL.Core.Infrastructure.Services
             }
         }
 
-        private IEnumerable<JobDto> ParseWuzzufJobsFromJson(string html, string locationFilter)
+        private IEnumerable<JobDto> ParseWuzzufJobsFromJson(string html, string? locationFilter)
         {
             var jobs = new List<JobDto>();
 
