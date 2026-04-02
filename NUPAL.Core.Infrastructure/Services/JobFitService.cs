@@ -266,19 +266,26 @@ STRICT RULES:
                 throw new Exception("Please provide either a valid job URL or a job description text.");
             }
 
+            // Optimize input size to save TPM
+            int maxJdLength = rawJobDescription.Length > 8000 ? 8000 : rawJobDescription.Length;
+            string shortenedJd = rawJobDescription[..maxJdLength];
+
             // 2. Step 1: Extract/Summarize JD using Light Model (8B)
             _logger.LogInformation("Step 1: Extracting JD requirements using light model.");
-            var jdExtractionPrompt = JD_EXTRACTION_PROMPT.Replace("[JOB_TEXT]", rawJobDescription.Length > 12000 ? rawJobDescription[..12000] : rawJobDescription);
-            var extractedJd = await CallGroqAsync(jdExtractionPrompt, "llama-3.1-8b-instant", false, ct);
+            var jdExtractionPrompt = JD_EXTRACTION_PROMPT.Replace("[JOB_TEXT]", shortenedJd);
+            var extractedJd = await CallGroqAsync(jdExtractionPrompt, "llama-3.1-8b-instant", false, 1500, ct);
 
             // 3. Step 2: Job Fit Analysis using Heavy Model (70B)
             _logger.LogInformation("Step 2: Performing Job Fit Analysis using heavy model.");
             var resumeJson = JsonSerializer.Serialize(resumeData);
+            // Also trim resume data length if unexpectedly large to save tokens
+            if (resumeJson.Length > 12000) resumeJson = resumeJson[..12000];
+            
             var finalPrompt = JOB_FIT_PROMPT
                 .Replace("[RESUME_DATA]", resumeJson)
                 .Replace("[JOB_TEXT]", extractedJd);
 
-            var analysisContent = await CallGroqAsync(finalPrompt, "llama-3.3-70b-versatile", true, ct);
+            var analysisContent = await CallGroqAsync(finalPrompt, "llama-3.3-70b-versatile", true, 2048, ct);
 
             var analysis = JsonSerializer.Deserialize<JobFitAnalysisDto>(analysisContent, _jsonOpts)
                 ?? throw new InvalidOperationException("Failed to deserialize job fit analysis.");
@@ -286,7 +293,7 @@ STRICT RULES:
             return analysis;
         }
 
-        private async Task<string> CallGroqAsync(string prompt, string model, bool isJsonObject, CancellationToken ct)
+        private async Task<string> CallGroqAsync(string prompt, string model, bool isJsonObject, int maxTokens, CancellationToken ct)
         {
             var groqApiKey = _config["GroqApiKey"] ?? throw new InvalidOperationException("GroqApiKey is not configured.");
             var requestBody = new
@@ -295,7 +302,7 @@ STRICT RULES:
                 messages = new[] { new { role = "user", content = prompt } },
                 temperature = 0,
                 seed = 42,
-                max_tokens = 8192,
+                max_tokens = maxTokens,
                 response_format = isJsonObject ? new { type = "json_object" } : null
             };
 
