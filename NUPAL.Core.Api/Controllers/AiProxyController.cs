@@ -64,21 +64,29 @@ public class AiProxyController : ControllerBase
         
         Response.StatusCode = (int)response.StatusCode;
 
+        var restrictedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Transfer-Encoding",
+            "Content-Length",
+            "Content-Encoding"
+        };
+
         foreach (var header in response.Headers)
         {
-            Response.Headers[header.Key] = header.Value.ToArray();
+            if (!restrictedHeaders.Contains(header.Key))
+            {
+                Response.Headers[header.Key] = header.Value.ToArray();
+            }
         }
 
         foreach (var header in response.Content.Headers)
         {
-            Response.Headers[header.Key] = header.Value.ToArray();
+            if (!restrictedHeaders.Contains(header.Key))
+            {
+                Response.Headers[header.Key] = header.Value.ToArray();
+            }
         }
         
-        // Strip restricted transport headers so Kestrel can natively re-frame the outbound stream
-        Response.Headers.Remove("transfer-encoding");
-        Response.Headers.Remove("content-length");
-        Response.Headers.Remove("content-encoding");
-
         await response.Content.CopyToAsync(Response.Body, HttpContext.RequestAborted);
     }
 }
