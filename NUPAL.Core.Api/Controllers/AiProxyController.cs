@@ -34,6 +34,11 @@ public class AiProxyController : ControllerBase
             {
                 proxyRequest.Content.Headers.TryAddWithoutValidation("Content-Type", Request.ContentType);
             }
+            
+            if (Request.ContentLength.HasValue)
+            {
+                proxyRequest.Content.Headers.TryAddWithoutValidation("Content-Length", Request.ContentLength.Value.ToString());
+            }
         }
 
         // Copy everything over (including the all-important Authorization: Bearer token for AI)
@@ -69,7 +74,10 @@ public class AiProxyController : ControllerBase
             Response.Headers[header.Key] = header.Value.ToArray();
         }
         
+        // Strip restricted transport headers so Kestrel can natively re-frame the outbound stream
         Response.Headers.Remove("transfer-encoding");
+        Response.Headers.Remove("content-length");
+        Response.Headers.Remove("content-encoding");
 
         await response.Content.CopyToAsync(Response.Body, HttpContext.RequestAborted);
     }
