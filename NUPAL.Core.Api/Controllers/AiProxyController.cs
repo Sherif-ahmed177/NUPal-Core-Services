@@ -34,6 +34,7 @@ public class AiProxyController : ControllerBase
     }
 
     [Route("{*path}")]
+    [ApiExplorerSettings(IgnoreApi = true)]
     [DisableRequestSizeLimit]
     public async Task Proxy(string path)
     {

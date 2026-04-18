@@ -66,12 +66,16 @@ public class AIServiceKeepAliveWorker : BackgroundService
         try
         {
             using var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-            
+            client.Timeout = TimeSpan.FromSeconds(60);
+
             _logger.LogInformation("Pinging {ServiceName} at {Url}...", serviceName, url);
             var response = await client.GetAsync(url, ct);
-            
+
             _logger.LogInformation("{ServiceName} responded with {StatusCode}", serviceName, response.StatusCode);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning("{ServiceName} at {Url} timed out after 60s.", serviceName, url);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
