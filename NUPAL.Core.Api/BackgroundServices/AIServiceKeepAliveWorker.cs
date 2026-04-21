@@ -73,13 +73,9 @@ public class AIServiceKeepAliveWorker : BackgroundService
 
             _logger.LogInformation("{ServiceName} responded with {StatusCode}", serviceName, response.StatusCode);
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (Exception ex)
         {
-            _logger.LogWarning("{ServiceName} at {Url} timed out after 60s.", serviceName, url);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning("Failed to ping {ServiceName} at {Url}: {Message}", serviceName, url, ex.Message);
+            _logger.LogWarning(ex, "Connectivity issue with {ServiceName} at {Url}. Background worker will continue.", serviceName, url);
         }
     }
 }
