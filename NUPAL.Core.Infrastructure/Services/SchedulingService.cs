@@ -1,0 +1,178 @@
+using Microsoft.Extensions.Logging;
+using Nupal.Domain.Entities;
+using NUPAL.Core.Application.DTOs;
+using NUPAL.Core.Application.Interfaces;
+using NUPAL.Core.Infrastructure.Services.Scheduling;
+
+namespace NUPAL.Core.Infrastructure.Services
+{
+
+    public class SchedulingService : ISchedulingService
+    {
+        private readonly IBlockRepository _repo;
+        private readonly ILogger<SchedulingService> _logger;
+
+        private readonly SemaphoreSlim _cacheLock = new(1, 1);
+        private Dictionary<string, List<SchedulingBlock>> _cache = new(StringComparer.OrdinalIgnoreCase);
+        private bool _cacheLoaded;
+
+        public SchedulingService(IBlockRepository repo, ILogger<SchedulingService> logger)
+        {
+            _repo = repo;
+            _logger = logger;
+        }
+        public async Task<IEnumerable<RawBlockDto>> GetBlocksAsync(string? level = null) =>
+            await GetCachedAsync(level);
+        public async Task<RawBlockDto?> GetBlockAsync(string blockId)
+        {
+            await EnsureCacheAsync();
+            var entity = _cache.Values
+                .SelectMany(list => list)
+                .FirstOrDefault(b => b.BlockId.Equals(blockId.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            return entity is null ? null : SchedulingBlockMapper.ToRawDto(entity);
+        }
+
+        public async Task<IEnumerable<string>> GetCourseNamesAsync(string? level = null)
+        {
+            var blocks = await GetBlocksAsync(level);
+            var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+
+            return blocks
+                .SelectMany(b => b.Courses)
+                .Select(c => (c.CourseName ?? "").Trim())
+                .Where(n => !excluded.Contains(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n);
+        }
+
+        public async Task<IEnumerable<string>> GetInstructorsAsync(string? level = null)
+        {
+            var blocks = await GetBlocksAsync(level);
+            var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "", "unknown", "tba", "tbd", "n/a" };
+
+            return blocks
+                .SelectMany(b => b.Courses)
+                .Select(c => (c.Instructor ?? "").Trim())
+                .Where(i => !string.IsNullOrEmpty(i) && !excluded.Contains(i))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(i => i);
+        }
+
+        public async Task<IEnumerable<RecommendationResultDto>> RecommendAsync(RecommendationRequestDto request)
+        {
+            var prefs = request.Preferences;
+            var desired = request.DesiredCourseNames ?? [];
+            int topN = request.TopN > 0 ? request.TopN : 5;
+
+            var levelBlocks = (await GetBlocksAsync(prefs.Level)).ToList();
+            if (levelBlocks.Count == 0)
+            {
+                _logger.LogWarning("No blocks found for level '{Level}'", prefs.Level);
+                return [];
+            }
+
+            var allFeatures = levelBlocks.Select(SchedulingBlockMapper.ExtractFeatures).ToList();
+            var vocab = SchedulingRecommender.BuildVocab(allFeatures);
+            var (pv, wv) = SchedulingRecommender.VectorisePrefs(prefs, desired, vocab, request.MatchCoursesOnly);
+            var scored = new List<Scheduling.Models.ScoredBlock>();
+
+            for (int i = 0; i < levelBlocks.Count; i++)
+            {
+                var f = allFeatures[i];
+                if (!SchedulingRecommender.PassesHardConstraints(f, prefs, request.MatchCoursesOnly)) continue;
+
+                scored.Add(SchedulingRecommender.ScoreBlock(
+                    levelBlocks[i], f, desired, pv, wv, vocab, prefs, request.MatchCoursesOnly));
+            }
+
+            scored = [.. scored.OrderByDescending(s => s.FinalScore)];
+            var vecMap = new Dictionary<string, double[]>(levelBlocks.Count);
+            for (int i = 0; i < levelBlocks.Count; i++)
+                vecMap[allFeatures[i].BlockId] = SchedulingRecommender.VectoriseBlock(allFeatures[i], vocab);
+            var top = request.MatchCoursesOnly
+                ? scored.Take(topN).ToList()
+                : SchedulingRecommender.DiversityFilter(scored, vecMap, topN);
+            return top.Select(s => SchedulingRecommender.BuildResultDto(s, prefs));
+        }
+
+        public async Task<int> SeedBlocksAsync(IEnumerable<RawBlockDto> blocks)
+        {
+            var entities = blocks.Select(dto => new SchedulingBlock
+            {
+                BlockId  = dto.BlockId,
+                Semester = dto.Semester,
+                Major    = dto.Major,
+                Level    = dto.Level,
+                Courses  = dto.Courses.Select(c => new SchedulingBlockCourse
+                {
+                    CourseName = c.CourseName,
+                    Section    = c.Section,
+                    Type       = c.Type,
+                    Instructor = c.Instructor,
+                    Day        = c.Day,
+                    StartTime  = c.StartTime,
+                    EndTime    = c.EndTime,
+                    Room       = c.Room,
+                }).ToList(),
+            }).ToList();
+
+            int count = await _repo.UpsertManyAsync(entities);
+
+            await InvalidateCacheAsync();
+
+            _logger.LogInformation("Seeded {Count} scheduling blocks into MongoDB", count);
+            return count;
+        }
+
+
+        private async Task EnsureCacheAsync()
+        {
+            if (_cacheLoaded) return;
+
+            await _cacheLock.WaitAsync();
+            try
+            {
+                if (_cacheLoaded) return;
+
+                var all = await _repo.GetAllAsync();
+                _cache = all
+                    .GroupBy(b => b.Level, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+
+                _cache[""] = all;
+                _cacheLoaded = true;
+
+                _logger.LogInformation(
+                    "Loaded {Count} scheduling blocks from MongoDB into cache", all.Count);
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+
+        private async Task<List<RawBlockDto>> GetCachedAsync(string? level = null)
+        {
+            await EnsureCacheAsync();
+
+            if (string.IsNullOrWhiteSpace(level) || level.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+                return _cache.TryGetValue("", out var all)
+                    ? all.Select(SchedulingBlockMapper.ToRawDto).ToList()
+                    : [];
+
+            return _cache.TryGetValue(level.Trim(), out var filtered)
+                ? filtered.Select(SchedulingBlockMapper.ToRawDto).ToList()
+                : [];
+        }
+
+        private async Task InvalidateCacheAsync()
+        {
+            await _cacheLock.WaitAsync();
+            try { _cache.Clear(); _cacheLoaded = false; }
+            finally { _cacheLock.Release(); }
+        }
+    }
+}

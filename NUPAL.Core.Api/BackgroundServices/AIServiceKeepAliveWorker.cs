@@ -66,16 +66,16 @@ public class AIServiceKeepAliveWorker : BackgroundService
         try
         {
             using var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-            
+            client.Timeout = TimeSpan.FromSeconds(60);
+
             _logger.LogInformation("Pinging {ServiceName} at {Url}...", serviceName, url);
             var response = await client.GetAsync(url, ct);
-            
+
             _logger.LogInformation("{ServiceName} responded with {StatusCode}", serviceName, response.StatusCode);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
-            _logger.LogWarning("Failed to ping {ServiceName} at {Url}: {Message}", serviceName, url, ex.Message);
+            _logger.LogWarning(ex, "Connectivity issue with {ServiceName} at {Url}. Background worker will continue.", serviceName, url);
         }
     }
 }

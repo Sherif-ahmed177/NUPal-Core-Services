@@ -75,7 +75,7 @@ namespace NUPAL.Core.API.Controllers
             }
         }
 
-        [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
         [HttpGet("by-email/{email}")]
         public async Task<IActionResult> GetByEmail([FromRoute] string email)
         {
@@ -99,6 +99,33 @@ namespace NUPAL.Core.API.Controllers
                 var s = await _service.GetStudentByIdAsync(id);
                 if (s == null) return NotFound(new { error = "not_found" });
                 return Ok(s);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "server_error", message = ex.Message });
+            }
+        }
+        [HttpGet("{id}/rl-recommendation")]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        public async Task<IActionResult> GetLatestRlRecommendation([FromRoute] string id, [FromServices] IRlRecommendationRepository rlRepo)
+        {
+            try
+            {
+                var s = await _service.GetStudentByIdAsync(id);
+                if (s == null) return NotFound(new { error = "student_not_found" });
+
+                var rlRecommendation = await rlRepo.GetLatestByStudentIdAsync(id);
+                if (rlRecommendation == null) return NotFound(new { error = "no_recommendation_found" });
+
+                return Ok(new
+                {
+                    id = rlRecommendation.Id.ToString(),
+                    termIndex = rlRecommendation.TermIndex,
+                    courses = rlRecommendation.Courses, // This is the string list of predicted courses
+                    slates = rlRecommendation.SlatesByTerm,
+                    metrics = rlRecommendation.Metrics,
+                    createdAt = rlRecommendation.CreatedAt
+                });
             }
             catch (Exception ex)
             {
