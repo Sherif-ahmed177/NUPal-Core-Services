@@ -60,6 +60,8 @@ namespace NUPAL.Core.Infrastructure
             services.AddScoped<IResumeRepository, ResumeRepository>();
             
             services.AddScoped<IJobFitRepository, JobFitRepository>();
+            services.AddScoped<ICourseMappingRepository, CourseMappingRepository>();
+            services.AddScoped<ICourseNormalizationService, CourseNormalizationService>();
 
             services.AddHostedService<PrecomputeBackgroundWorker>();
 

@@ -1,3 +1,4 @@
+using Nupal.Domain.Entities;
 using NUPAL.Core.Application.DTOs;
 using NUPAL.Core.Infrastructure.Services.Scheduling.Models;
 
@@ -229,7 +230,7 @@ namespace NUPAL.Core.Infrastructure.Services.Scheduling
         }
 
         internal static RecommendationResultDto BuildResultDto(
-            ScoredBlock s, SchedulePreferencesDto prefs)
+            ScoredBlock s, SchedulePreferencesDto prefs, List<CourseMapping>? mappings = null)
         {
             int matchScore = (int)Math.Round(s.FinalScore * 100);
             var reasons    = new List<string>();
@@ -251,7 +252,7 @@ namespace NUPAL.Core.Infrastructure.Services.Scheduling
 
             return new RecommendationResultDto
             {
-                Block      = SchedulingBlockMapper.RawToFrontend(s.Raw),
+                Block      = SchedulingBlockMapper.RawToFrontend(s.Raw, mappings),
                 MatchScore = matchScore,
                 Reasons    = reasons,
                 Breakdown  = new ScoreBreakdownDto
@@ -292,11 +293,16 @@ namespace NUPAL.Core.Infrastructure.Services.Scheduling
                 .Select(c => new string(c.ToLower().Where(char.IsLetterOrDigit).ToArray()))
                 .ToList();
 
+            var fCodesSanitized = f.NormalizedCourseCodes
+                .Select(c => new string(c.ToLower().Where(char.IsLetterOrDigit).ToArray()))
+                .ToList();
+
             int matched = 0;
-            Console.WriteLine($"[DEBUG-MATCH] [Block: {f.BlockId}] Courses available: " + string.Join(", ", fCoursesSanitized));
+            Console.WriteLine($"[DEBUG-MATCH] [Block: {f.BlockId}] Courses available: " + string.Join(", ", fCoursesSanitized) + " | Codes: " + string.Join(", ", fCodesSanitized));
             foreach (var d in desired)
             {
-                bool hit = fCoursesSanitized.Any(c => c.Contains(d) || d.Contains(c));
+                bool hit = fCoursesSanitized.Any(c => c.Contains(d) || d.Contains(c)) ||
+                           fCodesSanitized.Any(c => c.Contains(d) || d.Contains(c));
                 Console.WriteLine($"[DEBUG-MATCH] [Block: {f.BlockId}] Comparing desired: '{d}'. Hit: {hit}");
                 if (hit) matched++;
             }

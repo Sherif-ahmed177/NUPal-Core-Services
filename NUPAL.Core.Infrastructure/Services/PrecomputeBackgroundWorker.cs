@@ -9,7 +9,7 @@ namespace Nupal.Core.Infrastructure.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PrecomputeBackgroundWorker> _logger;
-        private readonly TimeSpan _interval = TimeSpan.FromMinutes(1);
+        private readonly TimeSpan _interval = TimeSpan.FromDays(5);
 
         public PrecomputeBackgroundWorker(IServiceProvider serviceProvider, ILogger<PrecomputeBackgroundWorker> logger)
         {
