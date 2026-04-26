@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nupal.Domain.Entities;
 using NUPAL.Core.Application.DTOs;
@@ -11,18 +12,27 @@ namespace NUPAL.Core.Infrastructure.Services
     {
         private readonly IBlockRepository _repo;
         private readonly ILogger<SchedulingService> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         private readonly SemaphoreSlim _cacheLock = new(1, 1);
         private Dictionary<string, List<SchedulingBlock>> _cache = new(StringComparer.OrdinalIgnoreCase);
+        private List<CourseMapping> _mappingsCache = [];
         private bool _cacheLoaded;
 
-        public SchedulingService(IBlockRepository repo, ILogger<SchedulingService> logger)
+        public SchedulingService(IBlockRepository repo, ILogger<SchedulingService> logger, IServiceScopeFactory scopeFactory)
         {
             _repo = repo;
             _logger = logger;
+            _scopeFactory = scopeFactory;
         }
         public async Task<IEnumerable<RawBlockDto>> GetBlocksAsync(string? level = null) =>
             await GetCachedAsync(level);
+
+        public async Task<IEnumerable<BlockDto>> GetMappedBlocksAsync(string? level = null)
+        {
+            var rawBlocks = await GetBlocksAsync(level);
+            return rawBlocks.Select(b => SchedulingBlockMapper.RawToFrontend(b, _mappingsCache));
+        }
         public async Task<RawBlockDto?> GetBlockAsync(string blockId)
         {
             await EnsureCacheAsync();
@@ -31,6 +41,14 @@ namespace NUPAL.Core.Infrastructure.Services
                 .FirstOrDefault(b => b.BlockId.Equals(blockId.Trim(), StringComparison.OrdinalIgnoreCase));
 
             return entity is null ? null : SchedulingBlockMapper.ToRawDto(entity);
+        }
+
+        public async Task<BlockDto?> GetMappedBlockAsync(string blockId)
+        {
+            var raw = await GetBlockAsync(blockId);
+            if (raw == null) return null;
+            await EnsureCacheAsync(); // Ensure mappings are loaded
+            return SchedulingBlockMapper.RawToFrontend(raw, _mappingsCache);
         }
 
         public async Task<IEnumerable<string>> GetCourseNamesAsync(string? level = null)
@@ -73,9 +91,20 @@ namespace NUPAL.Core.Infrastructure.Services
                 return [];
             }
 
-            var allFeatures = levelBlocks.Select(SchedulingBlockMapper.ExtractFeatures).ToList();
+            await EnsureCacheAsync(); // Ensure mappings cache is loaded
+
+            using var scope = _scopeFactory.CreateScope();
+            var normalizationService = scope.ServiceProvider.GetRequiredService<ICourseNormalizationService>();
+
+            var normalizedDesired = await normalizationService.NormalizeToCodesAsync(desired);
+            var distinctDesiredCodes = normalizedDesired
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var allFeatures = levelBlocks.Select(b => SchedulingBlockMapper.ExtractFeatures(b, _mappingsCache)).ToList();
             var vocab = SchedulingRecommender.BuildVocab(allFeatures);
-            var (pv, wv) = SchedulingRecommender.VectorisePrefs(prefs, desired, vocab, request.MatchCoursesOnly);
+            var (pv, wv) = SchedulingRecommender.VectorisePrefs(prefs, distinctDesiredCodes, vocab, request.MatchCoursesOnly);
             var scored = new List<Scheduling.Models.ScoredBlock>();
 
             for (int i = 0; i < levelBlocks.Count; i++)
@@ -84,7 +113,7 @@ namespace NUPAL.Core.Infrastructure.Services
                 if (!SchedulingRecommender.PassesHardConstraints(f, prefs, request.MatchCoursesOnly)) continue;
 
                 scored.Add(SchedulingRecommender.ScoreBlock(
-                    levelBlocks[i], f, desired, pv, wv, vocab, prefs, request.MatchCoursesOnly));
+                    levelBlocks[i], f, distinctDesiredCodes, pv, wv, vocab, prefs, request.MatchCoursesOnly));
             }
 
             scored = [.. scored.OrderByDescending(s => s.FinalScore)];
@@ -94,7 +123,7 @@ namespace NUPAL.Core.Infrastructure.Services
             var top = request.MatchCoursesOnly
                 ? scored.Take(topN).ToList()
                 : SchedulingRecommender.DiversityFilter(scored, vecMap, topN);
-            return top.Select(s => SchedulingRecommender.BuildResultDto(s, prefs));
+            return top.Select(s => SchedulingRecommender.BuildResultDto(s, prefs, _mappingsCache));
         }
 
         public async Task<int> SeedBlocksAsync(IEnumerable<RawBlockDto> blocks)
@@ -126,6 +155,37 @@ namespace NUPAL.Core.Infrastructure.Services
             return count;
         }
 
+        public async Task<CategorizedInstructorsDto> GetCategorizedInstructorsAsync(IEnumerable<string> courseNames, string? level = null)
+        {
+            var blocks = await GetBlocksAsync(level);
+            var courses = new HashSet<string>(courseNames, StringComparer.OrdinalIgnoreCase);
+            
+            var doctors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var tas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var b in blocks)
+            {
+                var frontendBlock = SchedulingBlockMapper.RawToFrontend(b, _mappingsCache);
+                foreach (var c in frontendBlock.Courses)
+                {
+                    if (courses.Contains(c.CourseName) || courses.Contains(c.CourseId))
+                    {
+                        if (!string.IsNullOrWhiteSpace(c.Instructor) && !c.Instructor.Equals("TBA", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (c.InstructorType == "Doctor") doctors.Add(c.Instructor);
+                            else if (c.InstructorType == "TA") tas.Add(c.Instructor);
+                        }
+                    }
+                }
+            }
+
+            return new CategorizedInstructorsDto
+            {
+                Doctors = doctors.OrderBy(x => x).ToList(),
+                TAs = tas.OrderBy(x => x).ToList()
+            };
+        }
+
 
         private async Task EnsureCacheAsync()
         {
@@ -136,7 +196,11 @@ namespace NUPAL.Core.Infrastructure.Services
             {
                 if (_cacheLoaded) return;
 
+                using var scope = _scopeFactory.CreateScope();
+                var mappingRepo = scope.ServiceProvider.GetRequiredService<ICourseMappingRepository>();
+
                 var all = await _repo.GetAllAsync();
+                _mappingsCache = await mappingRepo.GetAllAsync();
                 _cache = all
                     .GroupBy(b => b.Level, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
