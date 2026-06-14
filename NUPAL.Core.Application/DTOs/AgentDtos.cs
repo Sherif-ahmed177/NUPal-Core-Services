@@ -76,6 +76,27 @@ public class AgentRouteRequestDto
         public string? PolicyVersion { get; set; }
     }
 
+    public class AgentTitleRequestDto
+    {
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+
+        [JsonPropertyName("max_words")]
+        public int MaxWords { get; set; } = 6;
+    }
+
+    public class AgentTitleResponseDto
+    {
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("provider")]
+        public string? Provider { get; set; }
+
+        [JsonPropertyName("source")]
+        public string? Source { get; set; }
+    }
+
     public class AgentRouteResponseDto
     {
         // Legacy field kept for backward compatibility with older agent/backend versions.

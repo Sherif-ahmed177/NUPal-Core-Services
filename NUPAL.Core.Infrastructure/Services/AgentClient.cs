@@ -50,6 +50,44 @@ namespace Nupal.Core.Infrastructure.Services
             }
         }
 
+        public async Task<AgentTitleResponseDto?> GenerateConversationTitleAsync(
+            AgentTitleRequestDto request,
+            CancellationToken ct = default)
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null,
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                var resp = await _httpClient.PostAsJsonAsync(
+                    $"{_baseUrl.TrimEnd('/')}/title",
+                    request,
+                    options,
+                    ct);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync(ct);
+                    Console.WriteLine($"[AgentClient] Title generation failed: {(int)resp.StatusCode} - {body}. Using backend fallback title.");
+                    return null;
+                }
+
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                return JsonSerializer.Deserialize<AgentTitleResponseDto>(json, options);
+            }
+            catch (Exception ex) when (
+                ex is HttpRequestException ||
+                ex is TaskCanceledException ||
+                ex is OperationCanceledException)
+            {
+                Console.WriteLine($"[AgentClient] Title generation unavailable: {ex.Message}. Using backend fallback title.");
+                return null;
+            }
+        }
+
         private static AgentRouteResponseDto BuildFallbackResponse() => new()
         {
             Intent = "faq",

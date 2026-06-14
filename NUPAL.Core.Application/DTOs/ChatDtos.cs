@@ -43,6 +43,9 @@ namespace NUPAL.Core.Application.DTOs
         [JsonPropertyName("conversation_id")]
         public string ConversationId { get; set; } = string.Empty;
 
+        [JsonPropertyName("conversation_title")]
+        public string ConversationTitle { get; set; } = string.Empty;
+
         [JsonPropertyName("replies")]
         public List<ChatReplyDto> Replies { get; set; } = new();
     }

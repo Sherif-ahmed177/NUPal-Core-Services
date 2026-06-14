@@ -41,6 +41,65 @@ namespace NUPAL.Core.Application.Services
             return JsonSerializer.Serialize(value, MetadataJsonOptions);
         }
 
+        private static string BuildFallbackConversationTitle(string message)
+        {
+            var trimmed = (message ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) return "New Chat";
+
+            var sentenceEnd = trimmed.IndexOfAny(new[] { '.', '!', '?', '\n', '\r' });
+            var title = sentenceEnd > 0 ? trimmed[..sentenceEnd] : trimmed;
+            title = string.Join(" ", title.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+            if (title.Length > 60)
+            {
+                title = title[..60].TrimEnd() + "...";
+            }
+
+            return string.IsNullOrWhiteSpace(title) ? "New Chat" : title;
+        }
+
+        private static string CleanConversationTitle(string? title, string fallbackMessage)
+        {
+            var cleaned = (title ?? string.Empty).Trim();
+            cleaned = cleaned.Trim('"', '\'', '“', '”', '‘', '’');
+            cleaned = cleaned.Replace("\r", " ").Replace("\n", " ");
+            cleaned = string.Join(" ", cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+            if (string.IsNullOrWhiteSpace(cleaned))
+            {
+                return BuildFallbackConversationTitle(fallbackMessage);
+            }
+
+            if (cleaned.Length > 60)
+            {
+                cleaned = cleaned[..60].TrimEnd() + "...";
+            }
+
+            cleaned = cleaned.TrimEnd('.', '-', ':', ';', ',');
+            return string.IsNullOrWhiteSpace(cleaned)
+                ? BuildFallbackConversationTitle(fallbackMessage)
+                : cleaned;
+        }
+
+        private async Task<string> GenerateConversationTitleAsync(string firstMessage, CancellationToken ct)
+        {
+            try
+            {
+                var titleResponse = await _agent.GenerateConversationTitleAsync(new AgentTitleRequestDto
+                {
+                    Message = firstMessage.Trim(),
+                    MaxWords = 6
+                }, ct);
+
+                return CleanConversationTitle(titleResponse?.Title, firstMessage);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ChatService] AI title generation failed, using fallback title: {ex.Message}");
+                return BuildFallbackConversationTitle(firstMessage);
+            }
+        }
+
         private static AgentPipelineTraceEvent TraceEvent(
             int order,
             string stage,
@@ -315,6 +374,10 @@ namespace NUPAL.Core.Application.Services
 
             // 2) Fetch history (oldest -> newest)
             var history = await _msgRepo.GetRecentByConversationAsync(convoId, limit: 30);
+
+            var shouldGenerateConversationTitle = string.IsNullOrWhiteSpace(convo.Title) &&
+                                                  !history.Any(m => m.Role == "user");
+
             var agentHistory = history
                 .OrderBy(m => m.CreatedAt)
                 .Select(m => new AgentHistoryMessageDto
@@ -554,19 +617,19 @@ namespace NUPAL.Core.Application.Services
 
             await _convoRepo.TouchAsync(convoId);
 
-            // Update title if it's a new conversation (or has no title) and this is the first user message
-            if (string.IsNullOrEmpty(convo.Title))
+            // Generate a ChatGPT-style title only for the first user message in a new/empty conversation.
+            // If Groq/agent title generation fails, fall back to a safe shortened version of the first message.
+            if (shouldGenerateConversationTitle)
             {
-               // Simple strategy: use the first 50 chars of the message
-               var title = request.Message.Trim();
-               if (title.Length > 50) title = title.Substring(0, 50) + "...";
-               convo.Title = title;
-               await _convoRepo.UpdateAsync(convo); 
+                convo.Title = await GenerateConversationTitleAsync(request.Message, ct);
+                convo.LastActivityAt = DateTime.UtcNow;
+                await _convoRepo.UpdateAsync(convo);
             }
 
             return new ChatSendResponseDto
             {
                 ConversationId = convoId,
+                ConversationTitle = convo.Title ?? string.Empty,
                 Replies = replies
             };
         }
