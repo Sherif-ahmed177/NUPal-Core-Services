@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NUPAL.Core.Application.DTOs;
 using NUPAL.Core.Application.Interfaces;
+using Nupal.Domain.Entities;
 using System.Net.Mail;
 
 namespace NUPAL.Core.API.Controllers
@@ -11,11 +12,13 @@ namespace NUPAL.Core.API.Controllers
     {
         private readonly IStudentService _service;
         private readonly IConfiguration _config;
+        private readonly ICacheService _cache;
 
-        public StudentsController(IStudentService service, IConfiguration config)
+        public StudentsController(IStudentService service, IConfiguration config, ICacheService cache)
         {
             _service = service;
             _config = config;
+            _cache = cache;
         }
 
         [HttpPost("import")]
@@ -75,7 +78,7 @@ namespace NUPAL.Core.API.Controllers
             }
         }
 
-        [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
         [HttpGet("by-email/{email}")]
         public async Task<IActionResult> GetByEmail([FromRoute] string email)
         {
@@ -104,6 +107,117 @@ namespace NUPAL.Core.API.Controllers
             {
                 return StatusCode(500, new { error = "server_error", message = ex.Message });
             }
+        }
+        [HttpGet("{id}/rl-recommendation")]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        public async Task<IActionResult> GetLatestRlRecommendation([FromRoute] string id, [FromServices] IRlRecommendationRepository rlRepo, [FromServices] ICourseMappingRepository mappingRepo, [FromQuery] string? targetTrack = null, [FromQuery] string? objectiveProfile = null)
+        {
+            try
+            {
+                var selectedTrack = NormalizeTargetTrack(targetTrack);
+                var selectedProfile = NormalizeObjectiveProfile(objectiveProfile);
+
+                var cacheKey = $"rl-rec:{id}:{selectedTrack}:{selectedProfile}";
+                var cached = await _cache.GetAsync<RlRecommendationResponseDto>(cacheKey);
+                if (cached is not null)
+                {
+                    return Ok(cached);
+                }
+
+                var s = await _service.GetStudentByIdAsync(id);
+                if (s == null) return NotFound(new { error = "student_not_found" });
+
+                var rlRecommendation = await rlRepo.GetLatestByStudentIdAsync(id, "general", "balanced")
+                    ?? await rlRepo.GetLatestByStudentIdAsync(id, selectedTrack, selectedProfile);
+
+                if (rlRecommendation == null) return NotFound(new { error = "no_recommendation_found" });
+
+                var courses = rlRecommendation.Courses;
+                var slates = rlRecommendation.SlatesByTerm;
+                var metrics = rlRecommendation.Metrics;
+                var profiles = rlRecommendation.Profiles;
+
+                if (rlRecommendation.Tracks != null && rlRecommendation.Tracks.TryGetValue(selectedTrack, out var trackRecommendation))
+                {
+                    courses = trackRecommendation.Courses;
+                    slates = trackRecommendation.SlatesByTerm;
+                    metrics = trackRecommendation.Metrics;
+                    profiles = trackRecommendation.Profiles;
+
+                    if (trackRecommendation.Profiles != null && trackRecommendation.Profiles.TryGetValue(selectedProfile, out var profileRecommendation))
+                    {
+                        courses = profileRecommendation.Courses;
+                        slates = profileRecommendation.SlatesByTerm;
+                        metrics = profileRecommendation.Metrics;
+                    }
+                }
+
+                var mappingsCacheKey = "course-mappings:all";
+                var mappings = await _cache.GetAsync<List<CourseMapping>>(mappingsCacheKey);
+                if (mappings is null)
+                {
+                    mappings = await mappingRepo.GetAllAsync();
+                    await _cache.SetAsync(mappingsCacheKey, mappings, TimeSpan.FromHours(24));
+                }
+
+                var displayCourses = courses.Select(c =>
+                {
+                    var lower = c.Trim().ToLower();
+                    var mapping = mappings.FirstOrDefault(m =>
+                        (m.CourseCode != null && m.CourseCode.ToLower() == lower) ||
+                        m.GetAllNames().Any(n => n.ToLower() == lower)
+                    );
+
+                    if (mapping != null)
+                    {
+                        var name = mapping.CourseNames?.FirstOrDefault() ?? mapping.CourseCode;
+                        return name;
+                    }
+
+                    return c; // fallback: return raw code as-is
+                }).Distinct().ToList();
+
+                var result = new RlRecommendationResponseDto
+                {
+                    Id = rlRecommendation.Id.ToString(),
+                    TermIndex = slates?.FirstOrDefault()?.Term ?? rlRecommendation.TermIndex,
+                    Courses = displayCourses,
+                    Slates = slates,
+                    Metrics = metrics,
+                    CreatedAt = rlRecommendation.CreatedAt,
+                    TargetTrack = selectedTrack,
+                    ObjectiveProfile = selectedProfile,
+                    DefaultProfile = rlRecommendation.DefaultProfile,
+                    Profiles = profiles,
+                    Tracks = rlRecommendation.Tracks
+                };
+
+                await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(1));
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "server_error", message = ex.Message });
+            }
+        }
+
+        private static string NormalizeTargetTrack(string? targetTrack)
+        {
+            var raw = (targetTrack ?? "general").Trim().ToLowerInvariant().Replace("-", "_").Replace(" ", "_");
+            return raw switch
+            {
+                "bigdata" or "big_data" or "big_data_track" => "big_data",
+                "media" or "media_informatics" or "media_track" => "media",
+                "general" or "general_track" => "general",
+                _ => "general"
+            };
+        }
+
+        private static string NormalizeObjectiveProfile(string? profile)
+        {
+            if (string.IsNullOrWhiteSpace(profile)) return "balanced";
+            return profile.Trim().ToLowerInvariant().Replace("-", "_").Replace(" ", "_");
         }
     }
 }

@@ -61,9 +61,13 @@ namespace NUPAL.Core.API.Controllers
                     coursesCount = rlRecommendation.Courses?.Count ?? 0,
                     courses = rlRecommendation.Courses,
                     slatesCount = rlRecommendation.SlatesByTerm?.Count ?? 0,
+                    targetTrack = rlRecommendation.TargetTrack,
+                    objectiveProfile = rlRecommendation.ObjectiveProfile,
                     modelVersion = rlRecommendation.ModelVersion,
                     policyVersion = rlRecommendation.PolicyVersion,
-                    createdAt = rlRecommendation.CreatedAt
+                    createdAt = rlRecommendation.CreatedAt,
+                    defaultProfile = rlRecommendation.DefaultProfile,
+                    profilesCount = rlRecommendation.Profiles?.Count ?? 0
                 }
             });
         }
@@ -75,13 +79,8 @@ namespace NUPAL.Core.API.Controllers
             if (string.IsNullOrWhiteSpace(studentId))
                 return Unauthorized(new { error = "unauthorized" });
 
-            // Get recent conversations by querying messages
             var allConversations = new List<string>();
             var conversationDetails = new List<object>();
-
-            // Get recent messages for this student to find their conversations
-            // Note: This is a workaround since we don't have GetByStudentIdAsync
-            // You may need to add this method to IChatConversationRepository
 
             return Ok(new
             {

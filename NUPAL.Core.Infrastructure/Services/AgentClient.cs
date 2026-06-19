@@ -17,26 +17,88 @@ namespace Nupal.Core.Infrastructure.Services
             _baseUrl = config["AgentServiceUrl"] 
                        ?? config["Agent:BaseUrl"] 
                        ?? throw new InvalidOperationException("Agent service URL is not configured. Please provide 'AgentServiceUrl' in appsettings.");
-            _httpClient.Timeout = TimeSpan.FromSeconds(300);
+            var timeoutSeconds = config.GetValue<double?>("ExternalServiceTimeouts:AgentSeconds") ?? 600;
+            _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         }
 
         public async Task<AgentRouteResponseDto> RouteAsync(AgentRouteRequestDto request, CancellationToken ct = default)
         {
             var options = new JsonSerializerOptions
             {
-                PropertyNamingPolicy = null
+                PropertyNamingPolicy = null,
+                PropertyNameCaseInsensitive = true
             };
 
-            var resp = await _httpClient.PostAsJsonAsync($"{_baseUrl.TrimEnd('/')}/route", request, options, ct);
-            if (!resp.IsSuccessStatusCode)
+            try
             {
-                var body = await resp.Content.ReadAsStringAsync(ct);
-                throw new HttpRequestException($"Agent service failed: {(int)resp.StatusCode} - {body}");
-            }
+                var resp = await _httpClient.PostAsJsonAsync($"{_baseUrl.TrimEnd('/')}/route", request, options, ct);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync(ct);
+                    Console.WriteLine($"[AgentClient] Agent service failed: {(int)resp.StatusCode} - {body}. Using fallback.");
+                    return BuildFallbackResponse();
+                }
 
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            var parsed = JsonSerializer.Deserialize<AgentRouteResponseDto>(json, options);
-            return parsed ?? new AgentRouteResponseDto { Intent = "faq", Results = new List<AgentResultDto>() };
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                var parsed = JsonSerializer.Deserialize<AgentRouteResponseDto>(json, options);
+                return parsed ?? BuildFallbackResponse();
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException || ex is OperationCanceledException)
+            {
+                Console.WriteLine($"[AgentClient] Agent service unreachable: {ex.Message}. Using fallback.");
+                return BuildFallbackResponse();
+            }
         }
+
+        public async Task<AgentTitleResponseDto?> GenerateConversationTitleAsync(
+            AgentTitleRequestDto request,
+            CancellationToken ct = default)
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null,
+                PropertyNameCaseInsensitive = true
+            };
+
+            try
+            {
+                var resp = await _httpClient.PostAsJsonAsync(
+                    $"{_baseUrl.TrimEnd('/')}/title",
+                    request,
+                    options,
+                    ct);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync(ct);
+                    Console.WriteLine($"[AgentClient] Title generation failed: {(int)resp.StatusCode} - {body}. Using backend fallback title.");
+                    return null;
+                }
+
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                return JsonSerializer.Deserialize<AgentTitleResponseDto>(json, options);
+            }
+            catch (Exception ex) when (
+                ex is HttpRequestException ||
+                ex is TaskCanceledException ||
+                ex is OperationCanceledException)
+            {
+                Console.WriteLine($"[AgentClient] Title generation unavailable: {ex.Message}. Using backend fallback title.");
+                return null;
+            }
+        }
+
+        private static AgentRouteResponseDto BuildFallbackResponse() => new()
+        {
+            Intent = "faq",
+            Results = new List<AgentResultDto>
+            {
+                new AgentResultDto
+                {
+                    Kind = "rag",
+                    Answer = "عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى المحاولة مرة أخرى لاحقاً.",
+                }
+            }
+        };
     }
 }

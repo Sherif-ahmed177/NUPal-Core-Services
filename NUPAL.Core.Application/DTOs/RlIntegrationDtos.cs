@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Nupal.Domain.Entities;
 
@@ -23,6 +24,15 @@ namespace NUPAL.Core.Application.DTOs
 
         [JsonPropertyName("seed")]
         public int Seed { get; set; }
+
+        [JsonPropertyName("profile")]
+        public string? Profile { get; set; }
+
+        [JsonPropertyName("profiles")]
+        public List<string>? Profiles { get; set; }
+
+        [JsonPropertyName("target_track")]
+        public string? TargetTrack { get; set; }
     }
 
     public class RlEducation
@@ -76,6 +86,27 @@ namespace NUPAL.Core.Application.DTOs
     // Response from RL Service
     public class RlTrainingResponse
     {
+        [JsonIgnore]
+        public string? RawJson { get; set; }
+
+        [JsonPropertyName("recommended_slates")]
+        public List<List<string>> RecommendedSlates { get; set; }
+
+        [JsonPropertyName("terms")]
+        public List<RlTermResult> Terms { get; set; }
+
+        [JsonPropertyName("metadata")]
+        public RlMetadata Metadata { get; set; }
+
+        [JsonPropertyName("default_profile")]
+        public string? DefaultProfile { get; set; }
+
+        [JsonPropertyName("profiles")]
+        public Dictionary<string, ProfileRecommendationDto>? Profiles { get; set; }
+    }
+
+    public class ProfileRecommendationDto
+    {
         [JsonPropertyName("recommended_slates")]
         public List<List<string>> RecommendedSlates { get; set; }
 
@@ -118,6 +149,12 @@ namespace NUPAL.Core.Application.DTOs
         [JsonPropertyName("status")]
         public string? Status { get; set; }
 
+        [JsonPropertyName("profile")]
+        public string? Profile { get; set; }
+
+        [JsonPropertyName("target_track")]
+        public string? TargetTrack { get; set; }
+
         [JsonPropertyName("total_credits")]
         public double? TotalCredits { get; set; }
 
@@ -132,6 +169,18 @@ namespace NUPAL.Core.Application.DTOs
 
         [JsonPropertyName("top_failed_flags")]
         public object? TopFailedFlags { get; set; }
+
+        [JsonPropertyName("final_total_credits")]
+        public double? FinalTotalCredits { get; set; }
+
+        [JsonPropertyName("final_cum_gpa")]
+        public double? FinalCumGpa { get; set; }
+
+        [JsonPropertyName("graduated")]
+        public bool? Graduated { get; set; }
+
+        [JsonPropertyName("grad_flags")]
+        public Dictionary<string, object>? GradFlags { get; set; }
     }
 
     public class RlBestEpisode

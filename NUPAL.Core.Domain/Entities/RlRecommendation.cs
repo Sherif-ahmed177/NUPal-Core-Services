@@ -13,6 +13,9 @@ namespace Nupal.Domain.Entities
 
         public int TermIndex { get; set; } // The "next term number", e.g. 1 for first semester
 
+        public string TargetTrack { get; set; } = "general";
+        public string ObjectiveProfile { get; set; } = "balanced";
+
         public List<string> Courses { get; set; } = new();
 
         public List<TermRecommendation>? SlatesByTerm { get; set; }
@@ -23,6 +26,36 @@ namespace Nupal.Domain.Entities
 
         public string? ModelVersion { get; set; }
         public string? PolicyVersion { get; set; }
+
+        public string? DefaultProfile { get; set; }
+        public Dictionary<string, ProfileRecommendation>? Profiles { get; set; }
+
+        // One visible backend job can produce one recommendation bundle.
+        public string? ParentJobId { get; set; }
+        public string? EducationHash { get; set; }
+
+        // Full raw RL responses per target track, useful for LLM explanation/debugging.
+        public Dictionary<string, string>? RawResponsesByTrack { get; set; }
+
+        // Structured track-aware outputs: general, big_data, media.
+        public Dictionary<string, TrackRecommendation>? Tracks { get; set; }
+    }
+
+    public class TrackRecommendation
+    {
+        public string TargetTrack { get; set; } = "general";
+        public string? DefaultProfile { get; set; }
+        public List<string> Courses { get; set; } = new();
+        public List<TermRecommendation>? SlatesByTerm { get; set; }
+        public RecommendationMetrics Metrics { get; set; }
+        public Dictionary<string, ProfileRecommendation>? Profiles { get; set; }
+    }
+
+    public class ProfileRecommendation
+    {
+        public List<string> Courses { get; set; } = new();
+        public List<TermRecommendation>? SlatesByTerm { get; set; }
+        public RecommendationMetrics Metrics { get; set; }
     }
 
     public class TermRecommendation
